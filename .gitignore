@@ -1,0 +1,7 @@
+node_modules
+dist
+*.local
+.vite
+
+# Raw datasets are large; sources.md records where to download them and their hashes.
+data/raw/
