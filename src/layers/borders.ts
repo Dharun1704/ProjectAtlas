@@ -1,15 +1,16 @@
 import type { BorderSnapshot } from "../data/types";
 import type { PolygonLayerSpec } from "../globe/Renderer";
 import { isActiveInYear } from "../time/year";
+import { pointInMultiPolygon } from "./geometry";
 import type { Theme } from "./theme";
 import { LIGHT_THEME } from "./theme";
 
 export const BORDERS_LAYER_ID = "borders";
 
-/** Muted, old-map fills. Colour only tells neighbours apart; it carries no meaning. */
+/** Soft, modern fills. Colour only tells neighbours apart; it carries no meaning. */
 const PALETTE = [
-  "#b5651d", "#8a9a5b", "#a0522d", "#6b8e9f", "#c2956b", "#7d6b91",
-  "#9c6b4e", "#5f8575", "#b8860b", "#8f5e5e", "#6e7f4f", "#a67b5b",
+  "#6f9fd8", "#e2a85c", "#7dba9f", "#cf8fb4", "#8f92db", "#dd8f76",
+  "#62b5b6", "#bcab5e", "#9eabbb", "#d67b85", "#7aab70", "#ab8bcc",
 ];
 
 /** Stable colour for a polity: the same id always gets the same colour. */
@@ -28,6 +29,22 @@ export function findActiveSnapshot(
   year: number,
 ): BorderSnapshot | undefined {
   return snapshots.find((s) => s.polityId === polityId && isActiveInYear(s.start, s.end, year));
+}
+
+/**
+ * The snapshot valid in `year` that covers `point`, if any. Where several
+ * overlap, the last one wins, matching what is drawn on top.
+ */
+export function findSnapshotAtPoint(
+  snapshots: readonly BorderSnapshot[],
+  point: readonly [number, number],
+  year: number,
+): BorderSnapshot | undefined {
+  for (let i = snapshots.length - 1; i >= 0; i--) {
+    const s = snapshots[i] as BorderSnapshot;
+    if (isActiveInYear(s.start, s.end, year) && pointInMultiPolygon(point, s.geometry.coordinates)) return s;
+  }
+  return undefined;
 }
 
 /**
@@ -62,6 +79,7 @@ export function bordersLayer(snapshots: readonly BorderSnapshot[], theme: Theme 
       line: theme.borderLine,
       lineWidth: 1,
       softenByConfidence: true,
+      highlightLine: theme.highlight,
     },
   };
 }

@@ -8,9 +8,9 @@ Licenses marked "to verify" are from memory and must be confirmed on the source'
 |---|---|---|---|---|---|
 | Cliopatria (Seshat) | Borders (primary) | https://github.com/Seshat-Global-History-Databank/cliopatria | 2026-11-11 | CC BY 4.0 (verified 2026-11-11) | In use (v0.2.1) |
 | Historical Basemaps | Borders (fallback) | to add | not yet | to verify | Not checked |
-| Wikidata | Facts: dates, coordinates, kinds, names, sitelink counts | https://www.wikidata.org | not yet | CC0 (to verify) | Not checked |
-| Wikipedia | Summary text (lead extract, shortened) | https://www.wikipedia.org | not yet | CC BY-SA 4.0 (to verify) | Not checked |
-| Natural Earth | Modern base geography, regions | https://www.naturalearthdata.com | 2026-11-11 | Public domain (verified 2026-11-11) | In use (1:50m land, v5.1.2) |
+| Wikidata | Facts: dates, coordinates, kinds, names, sitelink counts | https://www.wikidata.org | 2026-11-15 | CC0 (verified 2026-11-15) | In use (sitelink counts only) |
+| Wikipedia | Summary text (lead extract, shortened) | https://en.wikipedia.org | 2026-11-11 | CC BY-SA 4.0 (verified 2026-11-11) | In use (polity summaries) |
+| Natural Earth | Modern base geography, regions | https://www.naturalearthdata.com | 2026-11-11 | Public domain (verified 2026-11-11) | In use (1:50m land and countries, v5.1.2) |
 
 ## Cliopatria (checked 2026-11-11)
 
@@ -39,13 +39,40 @@ Licenses marked "to verify" are from memory and must be confirmed on the source'
 - **Downloaded:** 2026-11-11 from `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_50m_land.geojson` to `data/raw/natural-earth/`. 1.6 MB, 1,420 features. SHA-256 `e874b27a51d146452be360cafb3cc50c86001074a67d534113e6534682f9826b`.
 - **Used for:** the land and coastline backdrop only (`data/processed/base/land.json`, 0.5 MB).
 - **Caveat:** these are **modern** coastlines. Shorelines, lakes and river deltas were different in the past, and the app says so in its credit line. Polities are sometimes drawn slightly off the modern coast because the two datasets were made separately.
-- **Not yet downloaded:** the country and region files needed for the Meanwhile view (M3).
+- **Countries file, downloaded 2026-11-15:** `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_50m_admin_0_countries.geojson` to `data/raw/natural-earth/`. 3.1 MB, 242 features. SHA-256 `3e458fc036ad0a66411f2c1e6cac49c5d7bfb81cb1123bc513b22511a2b7fdeb`.
+- **Used for:** its `SUBREGION` and `CONTINENT` fields, to group polities by region in the Meanwhile view. Areas it labels "Seven seas (open ocean)" are ignored.
+- **Caveats on regions:** they are modern groupings applied to the past. Natural Earth puts all of Russia, including Siberia, in "Eastern Europe", and Iran in "Southern Asia", so a steppe empire can be listed under Eastern Europe. Each polity gets one region: the one holding most of its land at its largest mapped extent. 1,542 of 1,544 polities get a region; two island polities fall outside the 1:50m country shapes and are listed under "Region unknown".
+
+## Wikipedia (checked 2026-11-11)
+
+- **License:** Creative Commons Attribution-ShareAlike 4.0, per Wikipedia's "Reusing Wikipedia content" page. Reusers must: credit by linking to the article, state the license with a link, say if the text was changed, and keep modified text under CC BY-SA.
+- **Downloaded:** 2026-11-11 through the public API `https://en.wikipedia.org/w/api.php` (`prop=extracts|info|pageprops`, lead section, plain text) by `pipeline/fetch-wikipedia.ts`, to `data/raw/wikipedia/intros.json` (2.6 MB). Each entry records the article revision it came from.
+- **What was requested:** the 1,446 distinct article titles that Cliopatria links its polities to. 1,442 exist with a lead; 4 are missing; 30 are disambiguation pages.
+- **Result:** 1,510 of 1,544 polities have a summary (`data/processed/summaries/polities.json`, 0.74 MB). The other 34 show "No summary available".
+- **How text is shortened:** whole sentences from the start of the lead, at most three and about 420 characters. Nothing is reworded. Empty brackets left by the API where a pronunciation guide was stripped are removed.
+- **Caveat:** the summary describes the article Cliopatria links, which is not always about exactly the mapped polity (for example "Sumerian City-States" links to "History of Sumer"). The app names the article next to every summary.
+- **Not deterministic:** articles change, so re-running the fetch can give different text. `build-summaries.ts` is deterministic for a given download.
+- **Rate limit:** the API answered 429 at four requests a second; the script now waits a second between requests and backs off when asked.
+
+## Wikidata (checked 2026-11-15)
+
+- **License:** CC0 (public domain) for structured data, per Wikidata's licensing page. No attribution required; the app credits it anyway.
+- **Downloaded:** 2026-11-15 by `pipeline/fetch-wikidata.ts` to `data/raw/wikidata/sitelinks.json`, in two lookups:
+  1. English Wikipedia's API (`prop=pageprops`): the Wikidata item behind each of the 1,446 article titles Cliopatria links. 1,442 have an item.
+  2. Wikidata's API (`wbgetentities`, `props=sitelinks`): the number of sitelinks of 1,458 items (those from step 1 plus the ids Cliopatria gives directly).
+- **Used for:** `importance`, which ranks polities inside each region of the Meanwhile view. Nothing else is taken from Wikidata yet.
+- **Which item is used:** the one behind the linked Wikipedia article (1,510 polities). Cliopatria's own Wikidata id is the fallback (34 polities: missing or disambiguation articles). Reason: the directly given ids are sometimes an obscure near-duplicate item. Cliopatria's id for "Byzantine Empire" has 1 sitelink and for "Han Dynasty" 15, while the items behind their articles have 192 and 132.
+- **Caveat:** 192 polities share their item with another polity (for example a dynasty and the state it ruled), so their count is not theirs alone.
+- **What importance measures:** how many Wikipedia-family sites have a page on the topic today. It is a measure of present-day coverage, not of historical weight.
+- **Not deterministic:** counts change over time. `build-polity-meta.ts` is deterministic for a given download.
 
 ## Attribution shown in the app
+
+- Meanwhile view: "Listed by how widely each is covered on Wikipedia (Wikidata sitelink counts). Regions are modern ones (Natural Earth)."
 
 - Natural Earth land: "Coastlines are modern: Natural Earth 1:50m land" with a link.
 
 - Cliopatria borders: "Borders: Cliopatria, Seshat Global History Databank, CC BY 4.0, simplified" with a link to the repository and the license.
 
-- Wikipedia summaries: "From Wikipedia, CC BY-SA 4.0, shortened" with a link to the article, on every summary.
+- Wikipedia summaries: "From the Wikipedia article <title>, CC BY-SA 4.0, shortened." with links to the article and the license, on every summary.
 - Other datasets: credited in the inspect panel through each record's `sources`.

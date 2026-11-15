@@ -3,14 +3,16 @@ import { borderLoader } from "../data/borders";
 import type { BorderChunk, BorderPolityRecord } from "../data/borders";
 import { loadLand } from "../data/land";
 import type { LandData } from "../data/land";
-import type { SourceRef } from "../data/types";
+import type { BorderSnapshot, SourceRef } from "../data/types";
+import { politySelection } from "../features/inspect/selection";
 import { MapLibreRenderer } from "../globe/MapLibreRenderer";
 import type { ClickHit, Renderer } from "../globe/Renderer";
 import { GRATICULE_LAYER_ID, graticuleLayer } from "../globe/graticule";
-import { BORDERS_LAYER_ID, bordersLayer, findActiveSnapshot } from "../layers/borders";
+import { BORDERS_LAYER_ID, bordersLayer, findActiveSnapshot, findSnapshotAtPoint } from "../layers/borders";
 import { LAND_LAYER_ID, landLayer } from "../layers/land";
 import { DARK_THEME, LIGHT_THEME } from "../layers/theme";
 import { useAtlasStore } from "../store/store";
+import type { Selection } from "../store/store";
 import { chunkStart } from "../time/year";
 
 type Props = {
@@ -33,13 +35,15 @@ export function GlobeView({ onBorderCount, onLandSource }: Props) {
     if (!container) return;
 
     const renderer: Renderer = new MapLibreRenderer();
-    const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const theme = () => (darkQuery.matches ? DARK_THEME : LIGHT_THEME);
+    const theme = () => (useAtlasStore.getState().theme === "dark" ? DARK_THEME : LIGHT_THEME);
 
     let cancelled = false;
     let ready = false;
     let unsubscribe: (() => void) | undefined;
     let wantedChunk: number | null = null;
+    let chunkPending = false;
+    let rendererBusy = false;
+    const publishBusy = () => useAtlasStore.getState().setGlobeBusy(chunkPending || rendererBusy);
     let chunk: BorderChunk | null = null;
     let land: LandData | null = null;
     let polities: Record<string, BorderPolityRecord> = {};
@@ -61,21 +65,48 @@ export function GlobeView({ onBorderCount, onLandSource }: Props) {
       renderer.setLayer(graticuleLayer(t.grid, t.gridOpacity));
     };
 
-    /** Keeps the inspect panel's "borders shown" in step with the year. */
+    const buildSelection = (
+      snapshot: BorderSnapshot,
+      location: [number, number],
+      switchedFrom?: Selection["switchedFrom"],
+    ): Selection | null =>
+      politySelection(
+        snapshot,
+        location,
+        chunk?.polities[snapshot.polityId],
+        polities[snapshot.polityId],
+        switchedFrom,
+      );
+
+    /**
+     * Keeps the inspect panel in step with the year. While the selected polity
+     * is mapped, only its "borders shown" range changes. Once it is no longer
+     * mapped, the panel switches to whatever the dataset shows at the clicked spot.
+     */
     const refreshSelection = (year: number) => {
       const { selection, setSelection } = useAtlasStore.getState();
       if (!selection || !chunk || chunk.chunkStart !== chunkStart(year)) return;
-      const active = findActiveSnapshot(chunk.snapshots, selection.polityId, year);
-      const shown = active ? { start: active.start, end: active.end } : null;
-      if (shown?.start !== selection.shown?.start || shown?.end !== selection.shown?.end) {
-        setSelection({ ...selection, shown });
+
+      const own = findActiveSnapshot(chunk.snapshots, selection.polityId, year);
+      if (own) {
+        if (own.start !== selection.shown?.start || own.end !== selection.shown?.end) {
+          setSelection({ ...selection, shown: { start: own.start, end: own.end } });
+        }
+        return;
       }
+
+      const here = findSnapshotAtPoint(chunk.snapshots, selection.location, year);
+      const next = here ? buildSelection(here, selection.location, { name: selection.name, year }) : null;
+      if (next) setSelection(next);
+      else if (selection.shown !== null) setSelection({ ...selection, shown: null });
     };
 
     const showBordersFor = (year: number) => {
       const wanted = chunkStart(year);
       if (wanted === wantedChunk) return;
       wantedChunk = wanted;
+      chunkPending = true;
+      publishBusy();
 
       borderLoader
         .loadChunk(wanted)
@@ -83,12 +114,17 @@ export function GlobeView({ onBorderCount, onLandSource }: Props) {
           if (cancelled || wantedChunk !== wanted) return;
           chunk = data;
           drawBorders();
+          chunkPending = false;
+          publishBusy();
           onBorderCount(data.snapshots.length);
           refreshSelection(useAtlasStore.getState().year);
         })
         .catch((error: unknown) => {
           console.error("Could not load borders", error);
-          if (!cancelled && wantedChunk === wanted) onBorderCount(0);
+          if (cancelled || wantedChunk !== wanted) return;
+          onBorderCount(0);
+          chunkPending = false;
+          publishBusy();
         });
 
       // Warm the neighbouring centuries so crossing into them is quick.
@@ -99,39 +135,21 @@ export function GlobeView({ onBorderCount, onLandSource }: Props) {
 
     const handleClick = (hit: ClickHit) => {
       const { setSelection, year } = useAtlasStore.getState();
-      const polityId = hit?.layerId === BORDERS_LAYER_ID ? hit.properties.polityId : undefined;
-      if (typeof polityId !== "string" || !chunk) {
-        setSelection(null);
-        return;
-      }
-      const active = findActiveSnapshot(chunk.snapshots, polityId, year);
-      const info = polities[polityId] ?? chunk.polities[polityId];
-      if (!active || !info) {
-        setSelection(null);
-        return;
-      }
-      const record = polities[polityId];
-      setSelection({
-        kind: "polity",
-        polityId,
-        name: info.name,
-        ...(info.wikidataId ? { wikidataId: info.wikidataId } : {}),
-        ...(info.wikipedia ? { wikipedia: info.wikipedia } : {}),
-        ...(record ? { datasetRange: { start: record.start, end: record.end } } : {}),
-        shown: { start: active.start, end: active.end },
-        confidence: active.confidence,
-        sources: active.sources,
-      });
+      const polityId = hit.feature?.layerId === BORDERS_LAYER_ID ? hit.feature.properties.polityId : undefined;
+      const snapshot =
+        typeof polityId === "string" && chunk ? findActiveSnapshot(chunk.snapshots, polityId, year) : undefined;
+      setSelection(snapshot ? buildSelection(snapshot, hit.location) : null);
     };
-
-    const onThemeChange = () => redrawAll();
-    darkQuery.addEventListener("change", onThemeChange);
 
     void (async () => {
       await renderer.mount(container);
       if (cancelled) return;
       ready = true;
       renderer.onClick(handleClick);
+      renderer.onBusyChange((busy) => {
+        rendererBusy = busy;
+        publishBusy();
+      });
       redrawAll();
 
       const state = useAtlasStore.getState();
@@ -163,14 +181,22 @@ export function GlobeView({ onBorderCount, onLandSource }: Props) {
         if (s.activeLayers.borders !== prev.activeLayers.borders) {
           renderer.setLayerVisible(BORDERS_LAYER_ID, s.activeLayers.borders);
         }
+        if (s.selection?.polityId !== prev.selection?.polityId) {
+          renderer.setHighlight(
+            BORDERS_LAYER_ID,
+            s.selection ? { property: "polityId", value: s.selection.polityId } : null,
+          );
+        }
+        if (s.theme !== prev.theme) redrawAll();
+        if (s.focus && s.focus !== prev.focus) renderer.flyTo(s.focus.location);
       });
     })();
 
     return () => {
       cancelled = true;
-      darkQuery.removeEventListener("change", onThemeChange);
       unsubscribe?.();
       renderer.destroy();
+      useAtlasStore.getState().setGlobeBusy(false);
     };
   }, [onBorderCount, onLandSource]);
 

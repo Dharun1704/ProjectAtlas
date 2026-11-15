@@ -20,6 +20,8 @@ export type Polity = {
   end: number;
   /** Wikidata sitelink count. */
   importance?: number;
+  /** Modern region holding most of the polity at its largest extent. */
+  region?: string;
   color?: string;
   sources: SourceRef[];
   confidence: Confidence;

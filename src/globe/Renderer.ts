@@ -36,6 +36,8 @@ export type PolygonLayerSpec = LayerBase & {
     lineWidth: number;
     /** Blur the outline of medium/low confidence features. */
     softenByConfidence: boolean;
+    /** Outline colour for the highlighted feature. Needed only if setHighlight is used on this layer. */
+    highlightLine?: string;
   };
 };
 
@@ -47,8 +49,11 @@ export type LineLayerSpec = LayerBase & {
 
 export type LayerSpec = PolygonLayerSpec | LineLayerSpec;
 
-/** What was clicked: the topmost clickable feature, or null for empty space. */
-export type ClickHit = { layerId: string; properties: Record<string, unknown> } | null;
+/** A click on the globe: where it landed, and the topmost clickable feature there, if any. */
+export type ClickHit = {
+  location: [lon: number, lat: number];
+  feature: { layerId: string; properties: Record<string, unknown> } | null;
+};
 
 export interface Renderer {
   /** Creates the globe inside `container`. Resolves when it is ready for layers. */
@@ -66,5 +71,17 @@ export interface Renderer {
   setYear(year: number): void;
   /** Registers the single click handler. */
   onClick(handler: (hit: ClickHit) => void): void;
+  /**
+   * Outlines the features of a polygon layer whose `property` equals `value`.
+   * Pass null to clear. Survives data and style changes to the layer.
+   */
+  setHighlight(layerId: string, match: { property: string; value: string } | null): void;
+  /**
+   * Registers the single busy handler. The globe is busy from the moment its
+   * data or year changes until it has finished drawing the result.
+   */
+  onBusyChange(handler: (busy: boolean) => void): void;
+  /** Turns the globe, calmly, so `location` is at the centre of the view. */
+  flyTo(location: [lon: number, lat: number]): void;
   destroy(): void;
 }

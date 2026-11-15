@@ -1,4 +1,7 @@
-/** Globe colours. Light is an old paper map; dark is a globe at night. */
+/**
+ * Globe colours. Light is a clean, pale map; dark is a globe at night.
+ * Panel colours live in src/app/app.css; keep the two in step.
+ */
 export type Theme = {
   name: "light" | "dark";
   sea: string;
@@ -8,26 +11,29 @@ export type Theme = {
   gridOpacity: number;
   borderLine: string;
   borderFillOpacity: number;
+  highlight: string;
 };
 
 export const LIGHT_THEME: Theme = {
   name: "light",
-  sea: "#c3cfc9",
-  land: "#ebe1c7",
-  coast: "#8a7a5c",
-  grid: "#6b5a3e",
-  gridOpacity: 0.35,
-  borderLine: "#4a3520",
-  borderFillOpacity: 0.5,
+  sea: "#c6d8e8",
+  land: "#f4f2ec",
+  coast: "#aab6c3",
+  grid: "#8a97a6",
+  gridOpacity: 0.22,
+  borderLine: "#ffffff",
+  borderFillOpacity: 0.72,
+  highlight: "#1f4fbf",
 };
 
 export const DARK_THEME: Theme = {
   name: "dark",
-  sea: "#0d1626",
-  land: "#252b38",
-  coast: "#56607a",
-  grid: "#8791ad",
-  gridOpacity: 0.22,
-  borderLine: "#e6dcc3",
-  borderFillOpacity: 0.55,
+  sea: "#152033",
+  land: "#252f42",
+  coast: "#3d4a61",
+  grid: "#64748b",
+  gridOpacity: 0.2,
+  borderLine: "#152033",
+  borderFillOpacity: 0.78,
+  highlight: "#ffffff",
 };

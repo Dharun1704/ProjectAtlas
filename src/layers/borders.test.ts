@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BorderSnapshot } from "../data/types";
-import { BORDERS_LAYER_ID, bordersLayer, findActiveSnapshot, polityColor } from "./borders";
+import { BORDERS_LAYER_ID, bordersLayer, findActiveSnapshot, findSnapshotAtPoint, polityColor } from "./borders";
 
 // Made-up test shapes. Not real history.
 const FAKE_SNAPSHOTS: BorderSnapshot[] = [
@@ -56,5 +56,28 @@ describe("findActiveSnapshot", () => {
   it("returns nothing outside the polity's ranges or for another polity", () => {
     expect(findActiveSnapshot(FAKE_SNAPSHOTS, "FAKE_polity_a", 51)).toBeUndefined();
     expect(findActiveSnapshot(FAKE_SNAPSHOTS, "FAKE_polity_b", 0)).toBeUndefined();
+  });
+});
+
+describe("findSnapshotAtPoint", () => {
+  it("finds the polity covering a point in a given year", () => {
+    // FAKE_polity_a is the triangle (0,0) (10,0) (10,10), valid -50..50.
+    expect(findSnapshotAtPoint(FAKE_SNAPSHOTS, [8, 2], 0)?.polityId).toBe("FAKE_polity_a");
+  });
+
+  it("ignores polities that are not valid that year", () => {
+    expect(findSnapshotAtPoint(FAKE_SNAPSHOTS, [8, 2], 51)).toBeUndefined();
+  });
+
+  it("returns nothing where no polity is mapped", () => {
+    expect(findSnapshotAtPoint(FAKE_SNAPSHOTS, [-40, -40], 0)).toBeUndefined();
+  });
+
+  it("prefers the snapshot drawn on top when two overlap", () => {
+    const overlapping: BorderSnapshot[] = [
+      { ...(FAKE_SNAPSHOTS[0] as BorderSnapshot), polityId: "FAKE_under" },
+      { ...(FAKE_SNAPSHOTS[0] as BorderSnapshot), polityId: "FAKE_over" },
+    ];
+    expect(findSnapshotAtPoint(overlapping, [8, 2], 0)?.polityId).toBe("FAKE_over");
   });
 });

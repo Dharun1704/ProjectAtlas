@@ -109,6 +109,10 @@ export function TimeSlider() {
     setYear(target);
   };
 
+  // Display only: split the finished label so the era can be set smaller. No conversion happens here.
+  const yearLabel = formatYear(year);
+  const [yearNumber, yearEra] = yearLabel.split(" ");
+
   const half = width / 2;
   const x = (y: number) => half + (y - year) * pxPerYear;
   const from = Math.max(minYear, year - half / pxPerYear);
@@ -129,7 +133,10 @@ export function TimeSlider() {
           <button type="button" aria-label="One year earlier" onClick={() => setYear(year - 1)} disabled={year <= minYear}>
             ‹
           </button>
-          <output className="time-slider__year">{formatYear(year)}</output>
+          <output className="time-slider__year" aria-label={yearLabel}>
+            {yearNumber}
+            <span className="time-slider__era">{yearEra}</span>
+          </output>
           <button type="button" aria-label="One year later" onClick={() => setYear(year + 1)} disabled={year >= maxYear}>
             ›
           </button>

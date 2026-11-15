@@ -79,6 +79,7 @@ type Polity = {
   name: string; altNames?: string[];
   start: number; end: number;
   importance?: number;       // Wikidata sitelink count; used to pick "major" items
+  region?: string;           // modern region holding most of it at its largest extent
   color?: string; sources: SourceRef[]; confidence: Confidence;
 };
 
@@ -118,14 +119,17 @@ type SourceRef = { title: string; url?: string; dataset?: string; license?: stri
 
 **Polity identity.** A polity is identified by its dataset name. Datasets attach one Wikidata ID to several different names, so the ID is a link, not an identity. Links the dataset doesn't provide, and merges of names that really are one polity, go in `/data/authored/corrections`, each with a source.
 
-**Regions** (for the Meanwhile view) come from Natural Earth's region fields, assigned by location.
+**Regions** (for the Meanwhile view) come from Natural Earth's region fields. A polity gets the one region holding most of its land at its largest mapped extent. They are modern groupings and are labelled as such.
+
+**Importance** is the sitelink count of the Wikidata item behind the polity's linked Wikipedia article, falling back to the dataset's own Wikidata ID. It measures present-day coverage, not historical weight, and is used only for ordering.
 
 ### Summaries
 
 - Facts (dates, coordinates, kind, names) come from **Wikidata** (CC0).
 - Summary text is the lead of the matching **Wikipedia** article (CC BY-SA 4.0), shortened to 1–3 sentences by the pipeline. Nobody writes summaries from memory.
-- Every summary shown in the app carries: "From Wikipedia, CC BY-SA 4.0, shortened" with a link to the article. Summary text stays under CC BY-SA.
-- No Wikipedia article means no summary. Show it as missing.
+- Every summary shown in the app carries: "From the Wikipedia article <title>, CC BY-SA 4.0, shortened" with links to the article and the license. Summary text stays under CC BY-SA.
+- No Wikipedia article, or only a disambiguation page, means no summary. Show it as missing.
+- A polity's summary comes from the article its dataset links to, which may be broader than the polity. Always name the article.
 - Britannica and other all-rights-reserved sources may be linked, never copied.
 
 ---
@@ -206,6 +210,7 @@ Guess-the-year game and an empire territory race.
 
 ## 11. Style and feel
 
-- Visual tone: old-map warmth (parchment, ink, muted colours) with modern clarity. Dark mode is a night-sky globe.
+- Visual tone: modern and clean. Neutral surfaces, one accent colour (blue), a sans-serif system font, and soft translucent panels floating over the globe. Polity fills are soft, distinct colours. Dark mode is a globe at night. The user picks light or dark with a switch in the app; it does not follow the system setting.
+- Panel colours are CSS variables in `src/app/app.css`; globe colours are in `src/layers/theme.ts`. Change them together.
 - Text is short. A summary is 1–3 sentences. Depth lives behind a "more" click.
 - Animations are calm and purposeful, never flashy for its own sake.

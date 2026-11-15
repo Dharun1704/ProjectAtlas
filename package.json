@@ -11,7 +11,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "pipeline:borders": "node --max-old-space-size=4096 pipeline/build-borders.ts",
-    "pipeline:land": "node pipeline/build-land.ts"
+    "pipeline:land": "node pipeline/build-land.ts",
+    "pipeline:fetch-wikipedia": "node pipeline/fetch-wikipedia.ts",
+    "pipeline:summaries": "node pipeline/build-summaries.ts",
+    "pipeline:fetch-wikidata": "node pipeline/fetch-wikidata.ts",
+    "pipeline:polity-meta": "node pipeline/build-polity-meta.ts"
   },
   "dependencies": {
     "maplibre-gl": "^6.17.0",
